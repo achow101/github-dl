@@ -71,7 +71,7 @@ def main():
     i = 1
     while True:
         r = requests.get(
-            f"https://api.github.com/repos/{args.owner}/{args.repo}/issues?per_page&page={i}",
+            f"https://api.github.com/repos/{args.owner}/{args.repo}/issues?per_page&page={i}&state=all",
             headers=headers,
         )
         issues = r.json()
@@ -122,7 +122,7 @@ def main():
     i = 1
     while True:
         r = requests.get(
-            f"https://api.github.com/repos/{args.owner}/{args.repo}/pulls?per_page&page={i}",
+            f"https://api.github.com/repos/{args.owner}/{args.repo}/pulls?per_page&page={i}state=all",
             headers=headers,
         )
         prs = r.json()
