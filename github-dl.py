@@ -74,6 +74,10 @@ def main():
             break
 
         for issue in issues:
+            # Skip PRs, we'll handle them all later
+            if "pull_request" in issue:
+                continue
+
             # Make the directory for this issue
             issue_num = issue["number"]
             issue_dir = os.path.join(issues_dir, str(issue_num))
@@ -102,6 +106,53 @@ def main():
                         json.dump(comment, f, indent=4)
 
                 j += 1
+
+        i += 1
+
+    # Make the PRs directory
+    prs_dir = os.path.join(target_dir, "prs")
+    os.makedirs(prs_dir, exist_ok=True)
+
+    # Get all of the PRs
+    i = 1
+    while True:
+        r = requests.get(
+            f"https://api.github.com/repos/{args.owner}/{args.repo}/pulls?per_page&page={i}",
+            headers=headers,
+        )
+        prs = r.json()
+        if len(prs) == 0:
+            break
+
+        for pr in prs:
+            # Make the directory for this issue
+            pr_num = pr["number"]
+            pr_dir = os.path.join(prs_dir, str(pr_num))
+            os.makedirs(pr_dir, exist_ok=True)
+
+            # Write the issue to the dir
+            pr_file = os.path.join(pr_dir, "pr")
+            with open(pr_file, "w") as f:
+                json.dump(pr, f, indent=4)
+
+            # Get the comments
+            comments_url = pr["comments_url"]
+            review_comments_url = pr["review_comments_url"]
+            for url in [comments_url, review_comments_url]:
+                j = 0
+                while True:
+                    r = requests.get(f"{url}?per_page=100&page={j}", headers=headers)
+                    comments = r.json()
+                    if len(comments) == 0:
+                        break
+
+                    for comment in comments:
+                        comment_file = os.path.join(pr_dir, str(comment["id"]))
+
+                        with open(comment_file, "w") as f:
+                            json.dump(comment, f, indent=4)
+
+                    j += 1
 
         i += 1
 
