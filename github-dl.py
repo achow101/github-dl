@@ -19,6 +19,7 @@ def main():
         help="The directory which will contain all of the downloaded data. Otherwise it is downloaded into the current directory",
         default=".",
     )
+    parser.add_argument("tokenuser", help="The username the auth token belongs to")
     parser.add_argument(
         "token",
         help="The username and Personal Access Token pair to authenticate with GitHub",
@@ -40,7 +41,7 @@ def main():
     try:
         gh_repo = Repo(repo_path)
     except (InvalidGitRepositoryError, NoSuchPathError) as e:
-        repo_url = f"https://{args.token}@github.com/{args.owner}/{args.repo}.git"
+        repo_url = f"https://{args.tokenuser}:{args.token}@github.com/{args.owner}/{args.repo}.git"
         gh_repo = Repo.clone_from(repo_url, repo_path)
 
 
