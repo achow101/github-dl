@@ -9,6 +9,7 @@ from git import (
     InvalidGitRepositoryError,
     NoSuchPathError,
     Repo,
+    Remote,
 )
 
 
@@ -51,6 +52,10 @@ def main():
     except (InvalidGitRepositoryError, NoSuchPathError) as e:
         repo_url = f"https://{args.tokenuser}:{args.token}@github.com/{args.owner}/{args.repo}.git"
         gh_repo = Repo.clone_from(repo_url, repo_path)
+    gh_remote = Remote(gh_repo, "origin")
+    gh_remote.fetch(update_head_ok=True)
+    gh_remote.fetch("+refs/pull/*:refs/remotes/upstream-pull/*")
+    gh_repo.git.reset("--hard", "@{u}")
 
     # Get git repo info
     r = requests.get(
