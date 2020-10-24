@@ -50,8 +50,10 @@ def main():
     try:
         gh_repo = Repo(repo_path)
     except (InvalidGitRepositoryError, NoSuchPathError) as e:
+        print("Cloning repo")
         repo_url = f"https://{args.tokenuser}:{args.token}@github.com/{args.owner}/{args.repo}.git"
         gh_repo = Repo.clone_from(repo_url, repo_path)
+    print("Updating repo")
     gh_remote = Remote(gh_repo, "origin")
     gh_remote.fetch(update_head_ok=True)
     gh_remote.fetch("+refs/pull/*:refs/remotes/upstream-pull/*")
@@ -68,8 +70,10 @@ def main():
     os.makedirs(issues_dir, exist_ok=True)
 
     # Get all of the issues
+    print("Fetching issues")
     i = 1
     while True:
+        print(f"Fetching issues page {i}")
         r = requests.get(
             f"https://api.github.com/repos/{args.owner}/{args.repo}/issues?per_page&page={i}&state=all",
             headers=headers,
@@ -119,8 +123,10 @@ def main():
     os.makedirs(prs_dir, exist_ok=True)
 
     # Get all of the PRs
+    print("Fetching pull requests")
     i = 1
     while True:
+        print(f"Fetching pull requests page {i}")
         r = requests.get(
             f"https://api.github.com/repos/{args.owner}/{args.repo}/pulls?per_page&page={i}state=all",
             headers=headers,
