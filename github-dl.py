@@ -59,12 +59,6 @@ def main():
     gh_remote.fetch("+refs/pull/*:refs/remotes/upstream-pull/*")
     gh_repo.git.reset("--hard", "@{u}")
 
-    # Get git repo info
-    r = requests.get(
-        f"https://api.github.com/repos/{args.owner}/{args.repo}", headers=headers
-    )
-    repo_data = r.json()
-
     # Make the issues directory
     issues_dir = os.path.join(target_dir, "issues")
     os.makedirs(issues_dir, exist_ok=True)
