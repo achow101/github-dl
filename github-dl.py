@@ -18,30 +18,6 @@ from git import (
 )
 
 
-headers = {
-    "accept": "application/vnd.github.v3+json",
-}
-
-
-def api_get(url):
-    r = requests.get(url, headers=headers)
-
-    # Check if we've been rate limited
-    if not r.ok:
-        if r.status_code == 403:
-            if r.headers["x-ratelimit-remaining"] == "0":
-                # Sleep until the rate limit resets
-                end = datetime.fromtimestamp(
-                    int(r.headers["x-ratelimit-reset"]), tz=timezone.utc
-                )
-                now = datetime.now(tz=timezone.utc)
-                time_to_sleep = (end - now).total_seconds()
-                print(f"Rate limited, sleeping for {time_to_sleep} seconds")
-                time.sleep(time_to_sleep)
-
-    return r.json()
-
-
 def main():
     parser = argparse.ArgumentParser(
         description="Download all GitHub repo data and metadata"
@@ -64,7 +40,28 @@ def main():
     args = parser.parse_args()
 
     # Set Authorization header
-    headers["Authorization"]: f"token {args.token}"
+    headers = {
+        "accept": "application/vnd.github.v3+json",
+        "Authorization": f"token {args.token}",
+    }
+
+    def api_get(url):
+        r = requests.get(url, headers=headers)
+
+        # Check if we've been rate limited
+        if not r.ok:
+            if r.status_code == 403:
+                if r.headers["x-ratelimit-remaining"] == "0":
+                    # Sleep until the rate limit resets
+                    end = datetime.fromtimestamp(
+                        int(r.headers["x-ratelimit-reset"]), tz=timezone.utc
+                    )
+                    now = datetime.now(tz=timezone.utc)
+                    time_to_sleep = (end - now).total_seconds()
+                    print(f"Rate limited, sleeping for {time_to_sleep} seconds")
+                    time.sleep(time_to_sleep)
+
+        return r.json()
 
     # Make the directory everything gets downloaded into
     dl_dir = os.path.abspath(args.dl_dir)
