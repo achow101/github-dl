@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import logging
 import os
 import requests
 import time
@@ -21,9 +22,27 @@ from git import (
 )
 
 
+log_levels = {
+    "critical": logging.CRITICAL,
+    "error": logging.ERROR,
+    "warning": logging.WARNING,
+    "info": logging.INFO,
+    "debug": logging.DEBUG,
+}
+
+LOG = logging.getLogger(__name__)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Download all GitHub repo data and metadata"
+    )
+    parser.add_argument(
+        "-l",
+        "--loglevel",
+        help="Set the logging level",
+        choices=log_levels.keys(),
+        default="info",
     )
     parser.add_argument(
         "--dl-dir",
@@ -41,6 +60,9 @@ def main():
     parser.add_argument("repo", help="The repository name to download")
 
     args = parser.parse_args()
+
+    # Set the log level
+    LOG.setLevel(log_levels[args.loglevel.lower()])
 
     # Set Authorization header
     headers = {
@@ -62,7 +84,7 @@ def main():
                     )
                     now = datetime.now(tz=timezone.utc)
                     time_to_sleep = (end - now).total_seconds()
-                    print(f"Rate limited, sleeping for {time_to_sleep} seconds")
+                    LOG.info(f"Rate limited, sleeping for {time_to_sleep} seconds")
                     time.sleep(time_to_sleep)
                     return api_get(url)
 
@@ -78,10 +100,10 @@ def main():
     try:
         gh_repo = Repo(repo_path)
     except (InvalidGitRepositoryError, NoSuchPathError) as e:
-        print("Cloning repo")
+        LOG.info("Cloning repo")
         repo_url = f"https://{args.tokenuser}:{args.token}@github.com/{args.owner}/{args.repo}.git"
         gh_repo = Repo.clone_from(repo_url, repo_path)
-    print("Updating repo")
+    LOG.info("Updating repo")
     gh_remote = Remote(gh_repo, "origin")
     gh_remote.fetch(update_head_ok=True)
     gh_remote.fetch("+refs/pull/*:refs/remotes/upstream-pull/*")
@@ -95,7 +117,7 @@ def main():
     def get_comments(endpoint, data_dir, comment_fields):
         i = 1
         while True:
-            print(f"Fetching {endpoint} page {i}")
+            LOG.info(f"Fetching {endpoint} page {i}")
             data = api_get(
                 f"https://api.github.com/repos/{args.owner}/{args.repo}/{endpoint}?per_page=100&page={i}&state=all"
             )
@@ -148,7 +170,7 @@ def main():
             i += 1
 
     # Get all of the issues
-    print("Fetching issues")
+    LOG.info("Fetching issues")
     get_comments("issues", issues_dir, ["comments_url"])
 
     # Make the PRs directory
@@ -156,7 +178,7 @@ def main():
     os.makedirs(prs_dir, exist_ok=True)
 
     # Get all of the PRs
-    print("Fetching pull requests")
+    LOG.info("Fetching pull requests")
     get_comments("pulls", prs_dir, ["comments_url", "review_comments_url"])
 
 
