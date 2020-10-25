@@ -118,15 +118,19 @@ def main():
     gh_repo.git.reset("--hard", "@{u}")
 
     # Helper for making target dirs containin the data
-    def make_subdir(name):
-        subdir_path = os.path.join(target_dir, name)
+    def make_subdir(name, parent_dir=target_dir):
+        subdir_path = os.path.join(parent_dir, name)
+        LOG.debug(f"Making subdirectory {subdir_path}")
         os.makedirs(subdir_path, exist_ok=True)
         return subdir_path
 
     # Helper for getting issues and prs and their comments
     def get_items(
-        endpoint, data_dir, id_field, filter_fn=None, item_fn=None, timestamp_field=None
+        endpoint, id_field, filter_fn=None, item_fn=None, timestamp_field=None
     ):
+        LOG.info(f"Fetching {endpoint}")
+        data_dir = make_subdir(endpoint)
+
         i = 1
         while True:
             LOG.info(f"Fetching {endpoint} page {i}")
@@ -140,10 +144,9 @@ def main():
                     continue
 
                 num = item[id_field]
-                item_dir = os.path.join(data_dir, str(num))
                 if item_fn is not None:
                     # Make the directory for this item
-                    os.makedirs(item_dir, exist_ok=True)
+                    item_dir = make_subdir(str(num), data_dir)
 
                     # Check whether this issue has any updates we don't have
                     item_file = os.path.join(item_dir, "item")
@@ -190,10 +193,8 @@ def main():
                 j += 1
 
     # Get all of the issues
-    LOG.info("Fetching issues")
     get_items(
         "issues",
-        make_subdir("issues"),
         "number",
         lambda item: "pull_request" not in item,
         get_comments,
@@ -201,16 +202,13 @@ def main():
     )
 
     # Get all of the PRs
-    LOG.info("Fetching pull requests")
-    get_items("pulls", make_subdir("prs"), "number", None, get_comments, "updated_at")
+    get_items("pulls", "number", None, get_comments, "updated_at")
 
     # Get the labels
-    LOG.info("Fetching labels")
-    get_items("labels", make_subdir("labels"), "id")
+    get_items("labels", "id")
 
     # Get the milstones
-    LOG.info("Fetching milestones")
-    get_items("milestones", make_subdir("milestones"), "id")
+    get_items("milestones", "id")
 
 
 if __name__ == "__main__":
