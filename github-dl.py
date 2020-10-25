@@ -117,9 +117,11 @@ def main():
     gh_remote.fetch("+refs/pull/*:refs/remotes/upstream-pull/*")
     gh_repo.git.reset("--hard", "@{u}")
 
-    # Make the issues directory
-    issues_dir = os.path.join(target_dir, "issues")
-    os.makedirs(issues_dir, exist_ok=True)
+    # Helper for making target dirs containin the data
+    def make_subdir(name):
+        subdir_path = os.path.join(target_dir, name)
+        os.makedirs(subdir_path, exist_ok=True)
+        return subdir_path
 
     # Helper for getting issues and prs and their comments
     def get_comments(endpoint, data_dir, comment_fields):
@@ -178,15 +180,11 @@ def main():
 
     # Get all of the issues
     LOG.info("Fetching issues")
-    get_comments("issues", issues_dir, ["comments_url"])
-
-    # Make the PRs directory
-    prs_dir = os.path.join(target_dir, "prs")
-    os.makedirs(prs_dir, exist_ok=True)
+    get_comments("issues", make_subdir("issues"), ["comments_url"])
 
     # Get all of the PRs
     LOG.info("Fetching pull requests")
-    get_comments("pulls", prs_dir, ["comments_url", "review_comments_url"])
+    get_comments("pulls", make_subdir("prs"), ["comments_url", "review_comments_url"])
 
     # Helper function to get page of results only
     def get_items(endpoint, data_dir):
@@ -209,13 +207,9 @@ def main():
                 break
             i += 1
 
-    # Make labels dir
-    labels_dir = os.path.join(target_dir, "labels")
-    os.makedirs(labels_dir, exist_ok=True)
-
     # Get the labels
     LOG.info("Fetching labels")
-    get_items("labels", labels_dir)
+    get_items("labels", make_subdir("labels"))
 
 
 if __name__ == "__main__":
