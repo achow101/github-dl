@@ -45,6 +45,7 @@ def main():
         default="info",
     )
     parser.add_argument(
+        "-d",
         "--dl-dir",
         help="The directory which will contain all of the downloaded data. Otherwise it is downloaded into the current directory",
         default=".",
