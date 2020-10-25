@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import requests
+import sys
 import time
 
 from datetime import (
@@ -31,6 +32,7 @@ log_levels = {
 }
 
 LOG = logging.getLogger(__name__)
+LOG.addHandler(logging.StreamHandler(sys.stdout))
 
 
 def main():
@@ -73,12 +75,17 @@ def main():
 
     # Helper function for api get requests
     def api_get(url):
+        LOG.debug(f"Get request to {url}")
         r = requests.get(url, headers=headers)
 
         # Check if we've been rate limited
         if not r.ok:
+            LOG.debug(f"HTTP failure, status {r.status_code}")
             if r.status_code == 403:
                 if r.headers["x-ratelimit-remaining"] == "0":
+                    LOG.debug(
+                        f"Rate limit: {r.headers['x-ratelimit-limit']}, Rate limit resets at {r.headers['x-ratelimit-reset']}"
+                    )
                     # Sleep until the rate limit resets
                     end = datetime.fromtimestamp(
                         int(r.headers["x-ratelimit-reset"]), tz=timezone.utc
@@ -148,6 +155,7 @@ def main():
                     since = f"&since={old.isoformat(timespec='seconds')}Z"
 
                 # Get the comments
+                LOG.debug(f"Fetching comments for {endpoint} {num}")
                 for field in comment_fields:
                     url = item[field]
                     j = 1
