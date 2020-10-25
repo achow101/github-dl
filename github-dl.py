@@ -116,19 +116,25 @@ def main():
     with open(info_file, "w") as f:
         json.dump(repo_info, f, indent=4)
 
-    # Make or update the git repo
-    repo_path = os.path.join(target_dir, "repo")
-    try:
-        gh_repo = Repo(repo_path)
-    except (InvalidGitRepositoryError, NoSuchPathError) as e:
-        LOG.info("Cloning repo")
-        repo_url = f"https://{args.tokenuser}:{args.token}@github.com/{args.owner}/{args.repo}.git"
-        gh_repo = Repo.clone_from(repo_url, repo_path)
-    LOG.info("Updating repo")
-    gh_remote = Remote(gh_repo, "origin")
-    gh_remote.fetch(update_head_ok=True)
-    gh_remote.fetch("+refs/pull/*:refs/remotes/upstream-pull/*")
-    gh_repo.git.reset("--hard", "@{u}")
+    # Make or update a git repo
+    def get_repo(repo_url, dir_name):
+        repo_path = os.path.join(target_dir, dir_name)
+        try:
+            gh_repo = Repo(repo_path)
+        except (InvalidGitRepositoryError, NoSuchPathError) as e:
+            LOG.info(f"Cloning {dir_name}")
+            gh_repo = Repo.clone_from(repo_url, repo_path)
+        LOG.info(f"Updating {dir_name}")
+        gh_remote = Remote(gh_repo, "origin")
+        gh_remote.fetch(update_head_ok=True)
+        gh_remote.fetch("+refs/pull/*:refs/remotes/upstream-pull/*")
+        gh_repo.git.reset("--hard", "@{u}")
+
+    # Get the git repo
+    get_repo(
+        f"https://{args.tokenuser}:{args.token}@github.com/{args.owner}/{args.repo}.git",
+        "repo",
+    )
 
     # Helper for making target dirs containin the data
     def make_subdir(name, parent_dir=target_dir):
@@ -236,6 +242,13 @@ def main():
 
     # Get the releases
     get_items("releases", "id", None, get_assets, "published_at")
+
+    # Make or update the git repo
+    if repo_info["has_wiki"]:
+        get_repo(
+            f"https://{args.tokenuser}:{args.token}@github.com/{args.owner}/{args.repo}.wiki.git",
+            "wiki",
+        )
 
 
 if __name__ == "__main__":
