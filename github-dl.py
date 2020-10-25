@@ -91,7 +91,7 @@ def main():
                         int(r.headers["x-ratelimit-reset"]), tz=timezone.utc
                     )
                     now = datetime.now(tz=timezone.utc)
-                    time_to_sleep = (end - now).total_seconds()
+                    time_to_sleep = int((end - now).total_seconds()) + 1
                     LOG.info(f"Rate limited, sleeping for {time_to_sleep} seconds")
                     time.sleep(time_to_sleep)
                     return api_get(url)
