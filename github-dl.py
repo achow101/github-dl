@@ -45,6 +45,7 @@ def main():
         "Authorization": f"token {args.token}",
     }
 
+    # Helper function for api get requests
     def api_get(url):
         r = requests.get(url, headers=headers)
 
@@ -86,49 +87,52 @@ def main():
     issues_dir = os.path.join(target_dir, "issues")
     os.makedirs(issues_dir, exist_ok=True)
 
+    # Helper for getting issues and prs and their comments
+    def get_comments(endpoint, data_dir, comment_fields):
+        i = 1
+        while True:
+            print(f"Fetching {endpoint} page {i}")
+            data = api_get(f"https://api.github.com/repos/{args.owner}/{args.repo}/{endpoint}?per_page=100&page={i}&state=all")
+            if len(data) == 0:
+                break
+
+            for item in data:
+                # Skip PRs if we are doing issues
+                if endpoint == "issues" and "pull_request" in item:
+                    continue
+
+                # Make the directory for this item
+                num = item["number"]
+                item_dir = os.path.join(data_dir, str(num))
+                os.makedirs(item_dir, exist_ok=True)
+
+                # Get the commends
+                for field in comment_fields:
+                    url = item[field]
+                    j = 1
+                    while True:
+                        comments = api_get(f"{url}?per_page=100&page={j}")
+                        if len(comments) == 0:
+                            break
+
+                        for comment in comments:
+                            comment_file = os.path.join(item_dir, str(comment["id"]))
+
+                            with open(comment_file, "w") as f:
+                                json.dump(comment, f, indent=4)
+
+                        j += 1
+
+                # Write the item data
+                item_file = os.path.join(item_dir, "item")
+                with open(item_file, "w") as f:
+                    json.dump(item, f, indent=4)
+
+            i += 1
+
     # Get all of the issues
     print("Fetching issues")
-    i = 1
-    while True:
-        print(f"Fetching issues page {i}")
-        issues = api_get(
-            f"https://api.github.com/repos/{args.owner}/{args.repo}/issues?per_page=100&page={i}&state=all"
-        )
-        if len(issues) == 0:
-            break
-
-        for issue in issues:
-            # Skip PRs, we'll handle them all later
-            if "pull_request" in issue:
-                continue
-
-            # Make the directory for this issue
-            issue_num = issue["number"]
-            issue_dir = os.path.join(issues_dir, str(issue_num))
-            os.makedirs(issue_dir, exist_ok=True)
-
-            # Write the issue to the dir
-            issue_file = os.path.join(issue_dir, "issue")
-            with open(issue_file, "w") as f:
-                json.dump(issue, f, indent=4)
-
-            # Get the comments
-            comments_url = issue["comments_url"]
-            j = 0
-            while True:
-                comments = api_get(f"{comments_url}?per_page=100&page={j}")
-                if len(comments) == 0:
-                    break
-
-                for comment in comments:
-                    comment_file = os.path.join(issue_dir, str(comment["id"]))
-
-                    with open(comment_file, "w") as f:
-                        json.dump(comment, f, indent=4)
-
-                j += 1
-
-        i += 1
+    get_comments("issues", issues_dir, ["comments_url"])
 
     # Make the PRs directory
     prs_dir = os.path.join(target_dir, "prs")
@@ -136,46 +140,7 @@ def main():
 
     # Get all of the PRs
     print("Fetching pull requests")
-    i = 1
-    while True:
-        print(f"Fetching pull requests page {i}")
-        prs = api_get(
-            f"https://api.github.com/repos/{args.owner}/{args.repo}/pulls?per_page=100&page={i}state=all"
-        )
-        if len(prs) == 0:
-            break
-
-        for pr in prs:
-            # Make the directory for this issue
-            pr_num = pr["number"]
-            pr_dir = os.path.join(prs_dir, str(pr_num))
-            os.makedirs(pr_dir, exist_ok=True)
-
-            # Write the issue to the dir
-            pr_file = os.path.join(pr_dir, "pr")
-            with open(pr_file, "w") as f:
-                json.dump(pr, f, indent=4)
-
-            # Get the comments
-            comments_url = pr["comments_url"]
-            review_comments_url = pr["review_comments_url"]
-            for url in [comments_url, review_comments_url]:
-                j = 0
-                while True:
-                    comments = api_get(f"{url}?per_page=100&page={j}")
-                    if len(comments) == 0:
-                        break
-
-                    for comment in comments:
-                        comment_file = os.path.join(pr_dir, str(comment["id"]))
-
-                        with open(comment_file, "w") as f:
-                            json.dump(comment, f, indent=4)
-
-                    j += 1
-
-        i += 1
-
+    get_comments("pulls", prs_dir, ["comments_url", "review_comments_url"])
 
 if __name__ == "__main__":
     main()
