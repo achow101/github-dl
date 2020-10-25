@@ -142,7 +142,6 @@ def main():
 
                 # Check whether this issue has any updates we don't have
                 item_file = os.path.join(item_dir, "item")
-                since_str = ""
                 if os.path.isfile(item_file):
                     with open(item_file, "r") as f:
                         saved_item = json.load(f)
@@ -150,7 +149,6 @@ def main():
                     new = isoparse(item["updated_at"])
                     if new <= old:
                         continue
-                    since = f"&since={old.isoformat(timespec='seconds')}Z"
 
                 # Get the comments
                 LOG.debug(f"Fetching comments for {endpoint} {num}")
@@ -158,7 +156,7 @@ def main():
                     url = item[field]
                     j = 1
                     while True:
-                        comments = api_get(f"{url}?per_page=100&page={j}{since_str}")
+                        comments = api_get(f"{url}?per_page=100&page={j}")
 
                         for comment in comments:
                             comment_file = os.path.join(item_dir, str(comment["id"]))
