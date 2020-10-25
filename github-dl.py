@@ -92,7 +92,7 @@ def main():
     while True:
         print(f"Fetching issues page {i}")
         issues = api_get(
-            f"https://api.github.com/repos/{args.owner}/{args.repo}/issues?per_page&page={i}&state=all"
+            f"https://api.github.com/repos/{args.owner}/{args.repo}/issues?per_page=100&page={i}&state=all"
         )
         if len(issues) == 0:
             break
@@ -140,7 +140,7 @@ def main():
     while True:
         print(f"Fetching pull requests page {i}")
         prs = api_get(
-            f"https://api.github.com/repos/{args.owner}/{args.repo}/pulls?per_page&page={i}state=all"
+            f"https://api.github.com/repos/{args.owner}/{args.repo}/pulls?per_page=100&page={i}state=all"
         )
         if len(prs) == 0:
             break
