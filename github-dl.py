@@ -83,14 +83,14 @@ def main():
             LOG.debug(f"HTTP failure, status {r.status_code}")
             if r.status_code == 403:
                 if r.headers["x-ratelimit-remaining"] == "0":
-                    LOG.debug(
-                        f"Rate limit: {r.headers['x-ratelimit-limit']}, Rate limit resets at {r.headers['x-ratelimit-reset']}"
-                    )
                     # Sleep until the rate limit resets
                     end = datetime.fromtimestamp(
                         int(r.headers["x-ratelimit-reset"]), tz=timezone.utc
                     )
                     now = datetime.now(tz=timezone.utc)
+                    LOG.debug(
+                        f"Rate limit: {r.headers['x-ratelimit-limit']}, Rate limit resets at {end.astimezone().isoformat()}"
+                    )
                     time_to_sleep = int((end - now).total_seconds()) + 1
                     LOG.info(f"Rate limited, sleeping for {time_to_sleep} seconds")
                     time.sleep(time_to_sleep)
