@@ -110,6 +110,12 @@ def main():
     target_dir = os.path.join(dl_dir, args.owner, args.repo)
     os.makedirs(target_dir, exist_ok=True)
 
+    # Fetch the repo info and write it to disk
+    info_file = os.path.join(target_dir, "info")
+    repo_info = api_get(f"https://api.github.com/repos/{args.owner}/{args.repo}")
+    with open(info_file, "w") as f:
+        json.dump(repo_info, f, indent=4)
+
     # Make or update the git repo
     repo_path = os.path.join(target_dir, "repo")
     try:
@@ -201,13 +207,14 @@ def main():
                 j += 1
 
     # Get all of the issues
-    get_items(
-        "issues",
-        "number",
-        lambda item: "pull_request" not in item,
-        get_comments,
-        "updated_at",
-    )
+    if repo_info["has_issues"]:
+        get_items(
+            "issues",
+            "number",
+            lambda item: "pull_request" not in item,
+            get_comments,
+            "updated_at",
+        )
 
     # Get all of the PRs
     get_items("pulls", "number", None, get_comments, "updated_at")
