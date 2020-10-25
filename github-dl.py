@@ -188,6 +188,35 @@ def main():
     LOG.info("Fetching pull requests")
     get_comments("pulls", prs_dir, ["comments_url", "review_comments_url"])
 
+    # Helper function to get page of results only
+    def get_items(endpoint, data_dir):
+        i = 1
+        while True:
+            LOG.info(f"Fetching {endpoint} page {i}")
+            data = api_get(
+                f"https://api.github.com/repos/{args.owner}/{args.repo}/{endpoint}?per_page=100&page={i}&state=all"
+            )
+
+            for item in data:
+                item_id = item["id"]
+                item_file = os.path.join(data_dir, str(item_id))
+
+                # Write the item data
+                with open(item_file, "w") as f:
+                    json.dump(item, f, indent=4)
+
+            if len(data) < 100:
+                break
+            i += 1
+
+    # Make labels dir
+    labels_dir = os.path.join(target_dir, "labels")
+    os.makedirs(labels_dir, exist_ok=True)
+
+    # Get the labels
+    LOG.info("Fetching labels")
+    get_items("labels", labels_dir)
+
 
 if __name__ == "__main__":
     main()
