@@ -61,6 +61,7 @@ def main():
                     time_to_sleep = (end - now).total_seconds()
                     print(f"Rate limited, sleeping for {time_to_sleep} seconds")
                     time.sleep(time_to_sleep)
+                    return api_get(url)
 
         return r.json()
 
