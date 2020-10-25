@@ -74,12 +74,13 @@ def main():
     }
 
     # Helper function for api get requests
-    def api_get(url):
+    def api_get(url, target_file=None):
         LOG.debug(f"Get request to {url}")
-        r = requests.get(url, headers=headers)
+        r = requests.get(url, headers=headers, stream=target_file is not None)
 
         # Check if we've been rate limited
         if not r.ok:
+            r.close()
             LOG.debug(f"HTTP failure, status {r.status_code}")
             if r.status_code == 403:
                 if r.headers["x-ratelimit-remaining"] == "0":
@@ -95,6 +96,12 @@ def main():
                     LOG.info(f"Rate limited, sleeping for {time_to_sleep} seconds")
                     time.sleep(time_to_sleep)
                     return api_get(url)
+
+        if target_file is not None:
+            with open(target_file, "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            return None
 
         return r.json()
 
@@ -124,7 +131,7 @@ def main():
         os.makedirs(subdir_path, exist_ok=True)
         return subdir_path
 
-    # Helper for getting issues and prs and their comments
+    # Helper for getting paginated api results
     def get_items(
         endpoint, id_field, filter_fn=None, item_fn=None, timestamp_field=None
     ):
@@ -172,6 +179,7 @@ def main():
                 break
             i += 1
 
+    # Helper function to get issue and pr comments
     def get_comments(item, item_dir):
         LOG.debug(f"Fetching comments for #{item['number']}")
         for field in ["comments_url", "review_comments_url"]:
@@ -209,6 +217,18 @@ def main():
 
     # Get the milstones
     get_items("milestones", "id")
+
+    # Helper function to get release assets
+    def get_assets(item, item_dir):
+        LOG.debug(f"Fetching release assets for {item['name']}")
+        for asset in item["assets"]:
+            api_get(f"{asset['browser_download_url']}")
+            asset_file = os.path.join(item_dir, f"{asset['name']}.txt")
+            with open(asset_file, "w") as f:
+                json.dump(asset, f, indent=4)
+
+    # Get the releases
+    get_items("releases", "id", None, get_assets, "published_at")
 
 
 if __name__ == "__main__":
