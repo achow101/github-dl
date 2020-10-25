@@ -13,6 +13,16 @@ from git import (
 )
 
 
+headers = {
+    "accept": "application/vnd.github.v3+json",
+}
+
+
+def api_get(url):
+    r = requests.get(url, headers=headers)
+    return r.json()
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Download all GitHub repo data and metadata"
@@ -34,11 +44,8 @@ def main():
 
     args = parser.parse_args()
 
-    # Prepare GitHub API headers
-    headers = {
-        "accept": "application/vnd.github.v3+json",
-        "Authorization": f"token {args.token}",
-    }
+    # Set Authorization header
+    headers["Authorization"]: f"token {args.token}"
 
     # Make the directory everything gets downloaded into
     dl_dir = os.path.abspath(args.dl_dir)
@@ -68,11 +75,9 @@ def main():
     i = 1
     while True:
         print(f"Fetching issues page {i}")
-        r = requests.get(
-            f"https://api.github.com/repos/{args.owner}/{args.repo}/issues?per_page&page={i}&state=all",
-            headers=headers,
+        issues = api_get(
+            f"https://api.github.com/repos/{args.owner}/{args.repo}/issues?per_page&page={i}&state=all"
         )
-        issues = r.json()
         if len(issues) == 0:
             break
 
@@ -121,11 +126,9 @@ def main():
     i = 1
     while True:
         print(f"Fetching pull requests page {i}")
-        r = requests.get(
-            f"https://api.github.com/repos/{args.owner}/{args.repo}/pulls?per_page&page={i}state=all",
-            headers=headers,
+        prs = api_get(
+            f"https://api.github.com/repos/{args.owner}/{args.repo}/pulls?per_page&page={i}state=all"
         )
-        prs = r.json()
         if len(prs) == 0:
             break
 
