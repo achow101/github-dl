@@ -10,6 +10,9 @@ from datetime import (
     datetime,
     timezone,
 )
+from dateutil.parser import (
+    isoparse,
+)
 from git import (
     InvalidGitRepositoryError,
     NoSuchPathError,
@@ -93,7 +96,9 @@ def main():
         i = 1
         while True:
             print(f"Fetching {endpoint} page {i}")
-            data = api_get(f"https://api.github.com/repos/{args.owner}/{args.repo}/{endpoint}?per_page=100&page={i}&state=all")
+            data = api_get(
+                f"https://api.github.com/repos/{args.owner}/{args.repo}/{endpoint}?per_page=100&page={i}&state=all"
+            )
             if len(data) == 0:
                 break
 
@@ -107,12 +112,24 @@ def main():
                 item_dir = os.path.join(data_dir, str(num))
                 os.makedirs(item_dir, exist_ok=True)
 
-                # Get the commends
+                # Check whether this issue has any updates we don't have
+                item_file = os.path.join(item_dir, "item")
+                since_str = ""
+                if os.path.isfile(item_file):
+                    with open(item_file, "r") as f:
+                        saved_item = json.load(f)
+                    old = isoparse(saved_item["updated_at"])
+                    new = isoparse(item["updated_at"])
+                    if new <= old:
+                        continue
+                    since = f"&since={old.isoformat(timespec='seconds')}Z"
+
+                # Get the comments
                 for field in comment_fields:
                     url = item[field]
                     j = 1
                     while True:
-                        comments = api_get(f"{url}?per_page=100&page={j}")
+                        comments = api_get(f"{url}?per_page=100&page={j}{since_str}")
                         if len(comments) == 0:
                             break
 
@@ -125,7 +142,6 @@ def main():
                         j += 1
 
                 # Write the item data
-                item_file = os.path.join(item_dir, "item")
                 with open(item_file, "w") as f:
                     json.dump(item, f, indent=4)
 
@@ -142,6 +158,7 @@ def main():
     # Get all of the PRs
     print("Fetching pull requests")
     get_comments("pulls", prs_dir, ["comments_url", "review_comments_url"])
+
 
 if __name__ == "__main__":
     main()
