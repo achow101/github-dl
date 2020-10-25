@@ -4,7 +4,12 @@ import argparse
 import json
 import os
 import requests
+import time
 
+from datetime import (
+    datetime,
+    timezone,
+)
 from git import (
     InvalidGitRepositoryError,
     NoSuchPathError,
@@ -20,6 +25,20 @@ headers = {
 
 def api_get(url):
     r = requests.get(url, headers=headers)
+
+    # Check if we've been rate limited
+    if not r.ok:
+        if r.status_code == 403:
+            if r.headers["x-ratelimit-remaining"] == "0":
+                # Sleep until the rate limit resets
+                end = datetime.fromtimestamp(
+                    int(r.headers["x-ratelimit-reset"]), tz=timezone.utc
+                )
+                now = datetime.now(tz=timezone.utc)
+                time_to_sleep = (end - now).total_seconds()
+                print(f"Rate limited, sleeping for {time_to_sleep} seconds")
+                time.sleep(time_to_sleep)
+
     return r.json()
 
 
@@ -100,10 +119,7 @@ def main():
             comments_url = issue["comments_url"]
             j = 0
             while True:
-                r = requests.get(
-                    f"{comments_url}?per_page=100&page={j}", headers=headers
-                )
-                comments = r.json()
+                comments = api_get(f"{comments_url}?per_page=100&page={j}")
                 if len(comments) == 0:
                     break
 
@@ -149,8 +165,7 @@ def main():
             for url in [comments_url, review_comments_url]:
                 j = 0
                 while True:
-                    r = requests.get(f"{url}?per_page=100&page={j}", headers=headers)
-                    comments = r.json()
+                    comments = api_get(f"{url}?per_page=100&page={j}")
                     if len(comments) == 0:
                         break
 
