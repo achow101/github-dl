@@ -67,14 +67,16 @@ def main():
     # Set the log level
     LOG.setLevel(log_levels[args.loglevel.lower()])
 
-    # Set Authorization header
-    headers = {
-        "accept": "application/vnd.github.v3+json",
-        "Authorization": f"token {args.token}",
-    }
-
     # Helper function for api get requests
-    def api_get(url, target_file=None):
+    def api_get(url, target_file=None, headers=None):
+        if headers is None:
+            headers = {
+                "accept": "application/vnd.github.v3+json",
+            }
+
+        # Set Authorization header
+        headers["Authorization"] = f"token {args.token}"
+
         LOG.debug(f"Get request to {url}")
         r = requests.get(url, headers=headers, stream=target_file is not None)
 
@@ -95,7 +97,7 @@ def main():
                     time_to_sleep = int((end - now).total_seconds()) + 1
                     LOG.info(f"Rate limited, sleeping for {time_to_sleep} seconds")
                     time.sleep(time_to_sleep)
-                    return api_get(url)
+                    return api_get(url, target_file, headers)
 
         if target_file is not None:
             with open(target_file, "wb") as f:
@@ -145,7 +147,12 @@ def main():
 
     # Helper for getting paginated api results
     def get_items(
-        endpoint, id_field, filter_fn=None, item_fn=None, timestamp_field=None
+        endpoint,
+        id_field,
+        filter_fn=None,
+        item_fn=None,
+        timestamp_field=None,
+        custom_headers=None,
     ):
         LOG.info(f"Fetching {endpoint}")
         data_dir = make_subdir(endpoint)
@@ -154,7 +161,9 @@ def main():
         while True:
             LOG.info(f"Fetching {endpoint} page {i}")
             data = api_get(
-                f"https://api.github.com/repos/{args.owner}/{args.repo}/{endpoint}?per_page=100&page={i}&state=all"
+                f"https://api.github.com/repos/{args.owner}/{args.repo}/{endpoint}?per_page=100&page={i}&state=all",
+                None,
+                custom_headers,
             )
 
             for item in data:
@@ -178,7 +187,7 @@ def main():
                             continue
 
                     # do per item processing
-                    item_fn(item, item_dir)
+                    item_fn(item, item_dir, custom_headers)
                 else:
                     # When theres is no per-item processing, there is no item dir, just a file
                     item_file = os.path.join(data_dir, str(num))
@@ -192,7 +201,7 @@ def main():
             i += 1
 
     # Helper function to get issue and pr comments
-    def get_comments(item, item_dir):
+    def get_comments(item, item_dir, custom_headers):
         LOG.debug(f"Fetching comments for #{item['number']}")
         for field in ["comments_url", "review_comments_url"]:
             if field not in item:
@@ -200,7 +209,7 @@ def main():
             url = item[field]
             j = 1
             while True:
-                comments = api_get(f"{url}?per_page=100&page={j}")
+                comments = api_get(f"{url}?per_page=100&page={j}", None, custom_headers)
 
                 for comment in comments:
                     comment_file = os.path.join(item_dir, str(comment["id"]))
@@ -232,10 +241,14 @@ def main():
     get_items("milestones", "id")
 
     # Helper function to get release assets
-    def get_assets(item, item_dir):
+    def get_assets(item, item_dir, custom_headers):
         LOG.debug(f"Fetching release assets for {item['name']}")
         for asset in item["assets"]:
-            api_get(f"{asset['browser_download_url']}")
+            api_get(
+                f"{asset['browser_download_url']}",
+                os.path.join(item_dir, asset["name"]),
+                custom_headers,
+            )
             asset_file = os.path.join(item_dir, f"{asset['name']}.txt")
             with open(asset_file, "w") as f:
                 json.dump(asset, f, indent=4)
