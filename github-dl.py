@@ -129,8 +129,6 @@ def main():
             data = api_get(
                 f"https://api.github.com/repos/{args.owner}/{args.repo}/{endpoint}?per_page=100&page={i}&state=all"
             )
-            if len(data) == 0:
-                break
 
             for item in data:
                 # Skip PRs if we are doing issues
@@ -161,8 +159,6 @@ def main():
                     j = 1
                     while True:
                         comments = api_get(f"{url}?per_page=100&page={j}{since_str}")
-                        if len(comments) == 0:
-                            break
 
                         for comment in comments:
                             comment_file = os.path.join(item_dir, str(comment["id"]))
@@ -170,12 +166,16 @@ def main():
                             with open(comment_file, "w") as f:
                                 json.dump(comment, f, indent=4)
 
+                        if len(comments) < 100:
+                            break
                         j += 1
 
                 # Write the item data
                 with open(item_file, "w") as f:
                     json.dump(item, f, indent=4)
 
+            if len(data) < 100:
+                break
             i += 1
 
     # Get all of the issues
