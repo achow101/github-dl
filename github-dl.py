@@ -124,7 +124,9 @@ def main():
         return subdir_path
 
     # Helper for getting issues and prs and their comments
-    def get_comments(endpoint, data_dir, comment_fields):
+    def get_items(
+        endpoint, data_dir, id_field, filter_fn=None, item_fn=None, timestamp_field=None
+    ):
         i = 1
         while True:
             LOG.info(f"Fetching {endpoint} page {i}")
@@ -134,41 +136,30 @@ def main():
 
             for item in data:
                 # Skip PRs if we are doing issues
-                if endpoint == "issues" and "pull_request" in item:
+                if filter_fn is not None and not filter_fn(item):
                     continue
 
-                # Make the directory for this item
-                num = item["number"]
+                num = item[id_field]
                 item_dir = os.path.join(data_dir, str(num))
-                os.makedirs(item_dir, exist_ok=True)
+                if item_fn is not None:
+                    # Make the directory for this item
+                    os.makedirs(item_dir, exist_ok=True)
 
-                # Check whether this issue has any updates we don't have
-                item_file = os.path.join(item_dir, "item")
-                if os.path.isfile(item_file):
-                    with open(item_file, "r") as f:
-                        saved_item = json.load(f)
-                    old = isoparse(saved_item["updated_at"])
-                    new = isoparse(item["updated_at"])
-                    if new <= old:
-                        continue
+                    # Check whether this issue has any updates we don't have
+                    item_file = os.path.join(item_dir, "item")
+                    if timestamp_field is not None and os.path.isfile(item_file):
+                        with open(item_file, "r") as f:
+                            saved_item = json.load(f)
+                        old = isoparse(saved_item[timestamp_field])
+                        new = isoparse(item[timestamp_field])
+                        if new <= old:
+                            continue
 
-                # Get the comments
-                LOG.debug(f"Fetching comments for {endpoint} {num}")
-                for field in comment_fields:
-                    url = item[field]
-                    j = 1
-                    while True:
-                        comments = api_get(f"{url}?per_page=100&page={j}")
-
-                        for comment in comments:
-                            comment_file = os.path.join(item_dir, str(comment["id"]))
-
-                            with open(comment_file, "w") as f:
-                                json.dump(comment, f, indent=4)
-
-                        if len(comments) < 100:
-                            break
-                        j += 1
+                    # do per item processing
+                    item_fn(item, item_dir)
+                else:
+                    # When theres is no per-item processing, there is no item dir, just a file
+                    item_file = os.path.join(data_dir, str(num))
 
                 # Write the item data
                 with open(item_file, "w") as f:
@@ -177,43 +168,49 @@ def main():
             if len(data) < 100:
                 break
             i += 1
+
+    def get_comments(item, item_dir):
+        LOG.debug(f"Fetching comments for #{item['number']}")
+        for field in ["comments_url", "review_comments_url"]:
+            if field not in item:
+                continue
+            url = item[field]
+            j = 1
+            while True:
+                comments = api_get(f"{url}?per_page=100&page={j}")
+
+                for comment in comments:
+                    comment_file = os.path.join(item_dir, str(comment["id"]))
+
+                    with open(comment_file, "w") as f:
+                        json.dump(comment, f, indent=4)
+
+                if len(comments) < 100:
+                    break
+                j += 1
 
     # Get all of the issues
     LOG.info("Fetching issues")
-    get_comments("issues", make_subdir("issues"), ["comments_url"])
+    get_items(
+        "issues",
+        make_subdir("issues"),
+        "number",
+        lambda item: "pull_request" not in item,
+        get_comments,
+        "updated_at",
+    )
 
     # Get all of the PRs
     LOG.info("Fetching pull requests")
-    get_comments("pulls", make_subdir("prs"), ["comments_url", "review_comments_url"])
-
-    # Helper function to get page of results only
-    def get_items(endpoint, data_dir):
-        i = 1
-        while True:
-            LOG.info(f"Fetching {endpoint} page {i}")
-            data = api_get(
-                f"https://api.github.com/repos/{args.owner}/{args.repo}/{endpoint}?per_page=100&page={i}&state=all"
-            )
-
-            for item in data:
-                item_id = item["id"]
-                item_file = os.path.join(data_dir, str(item_id))
-
-                # Write the item data
-                with open(item_file, "w") as f:
-                    json.dump(item, f, indent=4)
-
-            if len(data) < 100:
-                break
-            i += 1
+    get_items("pulls", make_subdir("prs"), "number", None, get_comments, "updated_at")
 
     # Get the labels
     LOG.info("Fetching labels")
-    get_items("labels", make_subdir("labels"))
+    get_items("labels", make_subdir("labels"), "id")
 
     # Get the milstones
     LOG.info("Fetching milestones")
-    get_items("milestones", make_subdir("milestones"))
+    get_items("milestones", make_subdir("milestones"), "id")
 
 
 if __name__ == "__main__":
