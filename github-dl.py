@@ -211,6 +211,10 @@ def main():
     LOG.info("Fetching labels")
     get_items("labels", make_subdir("labels"))
 
+    # Get the milstones
+    LOG.info("Fetching milestones")
+    get_items("milestones", make_subdir("milestones"))
+
 
 if __name__ == "__main__":
     main()
