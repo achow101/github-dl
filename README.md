@@ -49,7 +49,7 @@ pip install requests GitPython python-dateutil
 ## Usage
 
 ```
-usage: github-dl.py [-h] [-l {critical,error,warning,info,debug}] [-d DL_DIR] tokenuser token owner repo
+usage: github-dl.py [-h] [-l {critical,error,warning,info,debug}] [-d DL_DIR] tokenuser token owner [repo]
 
 Download all GitHub repo data and metadata
 
@@ -57,7 +57,7 @@ positional arguments:
   tokenuser             The username the auth token belongs to
   token                 The username and Personal Access Token pair to authenticate with GitHub
   owner                 The GitHub user or organization that owns the repository
-  repo                  The repository name to download
+  repo                  The repository name to download. If not specified, download all of owner's repos
 
 optional arguments:
   -h, --help            show this help message and exit

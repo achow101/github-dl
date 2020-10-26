@@ -271,7 +271,12 @@ def main():
     parser.add_argument(
         "owner", help="The GitHub user or organization that owns the repository"
     )
-    parser.add_argument("repo", help="The repository name to download")
+    parser.add_argument(
+        "repo",
+        help="The repository name to download. If not specified, download all of owner's repos",
+        nargs="?",
+        default=None,
+    )
 
     args = parser.parse_args()
 
@@ -280,7 +285,24 @@ def main():
 
     api = GitHubAPI(args.tokenuser, args.token)
 
-    download_repo(args.dl_dir, api, args.owner, args.repo)
+    if args.repo is not None:
+        download_repo(args.dl_dir, api, args.owner, args.repo)
+    else:
+        LOG.info(f"Downloading all repos for {args.owner}")
+        # Download all of the repos under args.owner
+        i = 0
+        while True:
+            repos = api.api_get(
+                f"https://api.github.com/users/{args.owner}/repos?per_page=100&page={i}"
+            )
+            for repo in repos:
+                LOG.info(f"Downloading {repo['name']}")
+                download_repo(args.dl_dir, api, args.owner, repo["name"])
+
+            if len(repos) < 100:
+                break
+
+            i += 1
 
 
 if __name__ == "__main__":
