@@ -125,12 +125,10 @@ def main():
             gh_repo = Repo(repo_path)
         except (InvalidGitRepositoryError, NoSuchPathError) as e:
             LOG.info(f"Cloning {dir_name}")
-            gh_repo = Repo.clone_from(repo_url, repo_path)
+            gh_repo = Repo.clone_from(repo_url, repo_path, multi_options=["--mirror"])
         LOG.info(f"Updating {dir_name}")
         gh_remote = Remote(gh_repo, "origin")
-        gh_remote.fetch(update_head_ok=True)
-        gh_remote.fetch("+refs/pull/*:refs/remotes/upstream-pull/*")
-        gh_repo.git.reset("--hard", "@{u}")
+        gh_remote.fetch()
 
     # Get the git repo
     get_repo(
