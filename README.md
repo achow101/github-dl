@@ -3,7 +3,7 @@
 Downloads an entire GitHub repository and it's metadata.
 
 Included in the download:
-* Git repo itself
+* Git repo itself as a mirror repository
 * All issues and issue comments
 * All Pull Requests, PR comments, and PR commits
 * Git repo for the Wiki
@@ -97,6 +97,27 @@ During this time, it may appear to be hanging, but it is actually just waiting f
 
 Since GitHub conveniently provides refs to the PR's commits in the Git repo itself, this is how GitHub-DL downloads those commits.
 The remote ref `refs/pull/*` point to the head commit for each PR, as well as a merge commit if the PR is still open.
+
+## Restoring The Git Repo
+
+Both the Git and the wiki repo are cloned using `git clone --mirror` so they are bare repositories that can be cloned with
+
+```
+git clone <path to repo>
+```
+
+The Pull Request commits can then be added to that cloned repository using
+
+```
+git fetch origin "+refs/pull/*:refs/remotes/upstream-pull/*"
+```
+
+The Pull Requests will then be available at `upstream-pull/<number>/head`.
+These can be checked out with
+
+```
+git checkout upstream-pull/<number/head
+```
 
 ## License
 
