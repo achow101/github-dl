@@ -35,6 +35,67 @@ LOG = logging.getLogger(__name__)
 LOG.addHandler(logging.StreamHandler(sys.stdout))
 
 
+class GitHubAPI:
+    def __init__(self, user, token):
+        self.user = user
+        self.token = token
+
+    # Helper function for api get requests
+    def api_get(self, url, target_file=None, headers=None):
+        if headers is None:
+            headers = {
+                "accept": "application/vnd.github.v3+json",
+            }
+
+        # Set Authorization header
+        headers["Authorization"] = f"token {self.token}"
+
+        LOG.debug(f"Get request to {url}")
+        r = requests.get(url, headers=headers, stream=target_file is not None)
+
+        # Check if we've been rate limited
+        if not r.ok:
+            r.close()
+            LOG.debug(f"HTTP failure, status {r.status_code}")
+            if r.status_code == 403:
+                if r.headers["x-ratelimit-remaining"] == "0":
+                    # Sleep until the rate limit resets
+                    end = datetime.fromtimestamp(
+                        int(r.headers["x-ratelimit-reset"]), tz=timezone.utc
+                    )
+                    now = datetime.now(tz=timezone.utc)
+                    LOG.debug(
+                        f"Rate limit: {r.headers['x-ratelimit-limit']}, Rate limit resets at {end.astimezone().isoformat()}"
+                    )
+                    time_to_sleep = int((end - now).total_seconds()) + 1
+                    LOG.info(f"Rate limited, sleeping for {time_to_sleep} seconds")
+                    time.sleep(time_to_sleep)
+                    return api.api_get(url, target_file, headers)
+
+        if target_file is not None:
+            with open(target_file, "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+            return None
+
+        return r.json()
+
+    # Make or update a git repo
+    def get_repo(self, owner, repo, target_dir, dir_name):
+        repo_path = os.path.join(target_dir, dir_name)
+        try:
+            gh_repo = Repo(repo_path)
+        except (InvalidGitRepositoryError, NoSuchPathError) as e:
+            LOG.info(f"Cloning {dir_name}")
+            repo_url = (
+                f"https://{self.user}:{self.token}@github.com/{owner}/{repo}.git",
+            )
+            gh_repo = Repo.clone_from(repo_url, repo_path, multi_options=["--mirror"])
+        LOG.info(f"Updating {dir_name}")
+        gh_remote = Remote(gh_repo, "origin")
+        gh_remote.fetch()
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Download all GitHub repo data and metadata"
@@ -67,45 +128,7 @@ def main():
     # Set the log level
     LOG.setLevel(log_levels[args.loglevel.lower()])
 
-    # Helper function for api get requests
-    def api_get(url, target_file=None, headers=None):
-        if headers is None:
-            headers = {
-                "accept": "application/vnd.github.v3+json",
-            }
-
-        # Set Authorization header
-        headers["Authorization"] = f"token {args.token}"
-
-        LOG.debug(f"Get request to {url}")
-        r = requests.get(url, headers=headers, stream=target_file is not None)
-
-        # Check if we've been rate limited
-        if not r.ok:
-            r.close()
-            LOG.debug(f"HTTP failure, status {r.status_code}")
-            if r.status_code == 403:
-                if r.headers["x-ratelimit-remaining"] == "0":
-                    # Sleep until the rate limit resets
-                    end = datetime.fromtimestamp(
-                        int(r.headers["x-ratelimit-reset"]), tz=timezone.utc
-                    )
-                    now = datetime.now(tz=timezone.utc)
-                    LOG.debug(
-                        f"Rate limit: {r.headers['x-ratelimit-limit']}, Rate limit resets at {end.astimezone().isoformat()}"
-                    )
-                    time_to_sleep = int((end - now).total_seconds()) + 1
-                    LOG.info(f"Rate limited, sleeping for {time_to_sleep} seconds")
-                    time.sleep(time_to_sleep)
-                    return api_get(url, target_file, headers)
-
-        if target_file is not None:
-            with open(target_file, "wb") as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    f.write(chunk)
-            return None
-
-        return r.json()
+    api = GitHubAPI(args.tokenuser, args.token)
 
     # Make the directory everything gets downloaded into
     dl_dir = os.path.abspath(args.dl_dir)
@@ -114,25 +137,15 @@ def main():
 
     # Fetch the repo info and write it to disk
     info_file = os.path.join(target_dir, "info")
-    repo_info = api_get(f"https://api.github.com/repos/{args.owner}/{args.repo}")
+    repo_info = api.api_get(f"https://api.github.com/repos/{args.owner}/{args.repo}")
     with open(info_file, "w") as f:
         json.dump(repo_info, f, indent=4)
 
-    # Make or update a git repo
-    def get_repo(repo_url, dir_name):
-        repo_path = os.path.join(target_dir, dir_name)
-        try:
-            gh_repo = Repo(repo_path)
-        except (InvalidGitRepositoryError, NoSuchPathError) as e:
-            LOG.info(f"Cloning {dir_name}")
-            gh_repo = Repo.clone_from(repo_url, repo_path, multi_options=["--mirror"])
-        LOG.info(f"Updating {dir_name}")
-        gh_remote = Remote(gh_repo, "origin")
-        gh_remote.fetch()
-
     # Get the git repo
-    get_repo(
-        f"https://{args.tokenuser}:{args.token}@github.com/{args.owner}/{args.repo}.git",
+    api.get_repo(
+        args.owner,
+        args.repo,
+        target_dir,
         "repo",
     )
 
@@ -158,7 +171,7 @@ def main():
         i = 1
         while True:
             LOG.info(f"Fetching {endpoint} page {i}")
-            data = api_get(
+            data = api.api_get(
                 f"https://api.github.com/repos/{args.owner}/{args.repo}/{endpoint}?per_page=100&page={i}&state=all",
                 None,
                 custom_headers,
@@ -207,7 +220,9 @@ def main():
             url = item[field]
             j = 1
             while True:
-                comments = api_get(f"{url}?per_page=100&page={j}", None, custom_headers)
+                comments = api.api_get(
+                    f"{url}?per_page=100&page={j}", None, custom_headers
+                )
 
                 for comment in comments:
                     comment_file = os.path.join(item_dir, str(comment["id"]))
@@ -242,7 +257,7 @@ def main():
     def get_assets(item, item_dir, custom_headers):
         LOG.debug(f"Fetching release assets for {item['name']}")
         for asset in item["assets"]:
-            api_get(
+            api.api_get(
                 f"{asset['browser_download_url']}",
                 os.path.join(item_dir, asset["name"]),
                 custom_headers,
@@ -256,8 +271,10 @@ def main():
 
     # Make or update the git repo
     if repo_info["has_wiki"]:
-        get_repo(
-            f"https://{args.tokenuser}:{args.token}@github.com/{args.owner}/{args.repo}.wiki.git",
+        api.get_repo(
+            args.owner,
+            f"{args.repo}.wiki.git",
+            target_dir,
             "wiki",
         )
 
