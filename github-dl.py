@@ -16,6 +16,7 @@ from dateutil.parser import (
     isoparse,
 )
 from git import (
+    GitCommandError,
     InvalidGitRepositoryError,
     NoSuchPathError,
     Repo,
@@ -236,12 +237,15 @@ def download_repo(args_dl_dir, api, owner, repo):
 
     # Make or update the git repo
     if repo_info["has_wiki"]:
-        api.get_repo(
-            owner,
-            f"{repo}.wiki",
-            target_dir,
-            "wiki",
-        )
+        try:
+            api.get_repo(
+                owner,
+                f"{repo}.wiki",
+                target_dir,
+                "wiki",
+            )
+        except GitCommandError:
+            LOG.error("Unable to clone wiki. Sometimes GitHub says a wiki is available but it can't be cloned")
 
 
 def main():
