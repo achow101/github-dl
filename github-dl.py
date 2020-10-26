@@ -245,7 +245,9 @@ def download_repo(args_dl_dir, api, owner, repo):
                 "wiki",
             )
         except GitCommandError:
-            LOG.error("Unable to clone wiki. Sometimes GitHub says a wiki is available but it can't be cloned")
+            LOG.error(
+                "Unable to clone wiki. Sometimes GitHub says a wiki is available but it can't be cloned"
+            )
 
 
 def main():
