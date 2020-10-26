@@ -96,55 +96,22 @@ class GitHubAPI:
         gh_remote.fetch()
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="Download all GitHub repo data and metadata"
-    )
-    parser.add_argument(
-        "-l",
-        "--loglevel",
-        help="Set the logging level",
-        choices=log_levels.keys(),
-        default="info",
-    )
-    parser.add_argument(
-        "-d",
-        "--dl-dir",
-        help="The directory which will contain all of the downloaded data. Otherwise it is downloaded into the current directory",
-        default=".",
-    )
-    parser.add_argument("tokenuser", help="The username the auth token belongs to")
-    parser.add_argument(
-        "token",
-        help="The username and Personal Access Token pair to authenticate with GitHub",
-    )
-    parser.add_argument(
-        "owner", help="The GitHub user or organization that owns the repository"
-    )
-    parser.add_argument("repo", help="The repository name to download")
-
-    args = parser.parse_args()
-
-    # Set the log level
-    LOG.setLevel(log_levels[args.loglevel.lower()])
-
-    api = GitHubAPI(args.tokenuser, args.token)
-
+def download_repo(args_dl_dir, api, owner, repo):
     # Make the directory everything gets downloaded into
-    dl_dir = os.path.abspath(args.dl_dir)
-    target_dir = os.path.join(dl_dir, args.owner, args.repo)
+    dl_dir = os.path.abspath(args_dl_dir)
+    target_dir = os.path.join(dl_dir, owner, repo)
     os.makedirs(target_dir, exist_ok=True)
 
     # Fetch the repo info and write it to disk
     info_file = os.path.join(target_dir, "info")
-    repo_info = api.api_get(f"https://api.github.com/repos/{args.owner}/{args.repo}")
+    repo_info = api.api_get(f"https://api.github.com/repos/{owner}/{repo}")
     with open(info_file, "w") as f:
         json.dump(repo_info, f, indent=4)
 
     # Get the git repo
     api.get_repo(
-        args.owner,
-        args.repo,
+        owner,
+        repo,
         target_dir,
         "repo",
     )
@@ -172,7 +139,7 @@ def main():
         while True:
             LOG.info(f"Fetching {endpoint} page {i}")
             data = api.api_get(
-                f"https://api.github.com/repos/{args.owner}/{args.repo}/{endpoint}?per_page=100&page={i}&state=all",
+                f"https://api.github.com/repos/{owner}/{repo}/{endpoint}?per_page=100&page={i}&state=all",
                 None,
                 custom_headers,
             )
@@ -272,11 +239,48 @@ def main():
     # Make or update the git repo
     if repo_info["has_wiki"]:
         api.get_repo(
-            args.owner,
-            f"{args.repo}.wiki.git",
+            owner,
+            f"{repo}.wiki.git",
             target_dir,
             "wiki",
         )
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Download all GitHub repo data and metadata"
+    )
+    parser.add_argument(
+        "-l",
+        "--loglevel",
+        help="Set the logging level",
+        choices=log_levels.keys(),
+        default="info",
+    )
+    parser.add_argument(
+        "-d",
+        "--dl-dir",
+        help="The directory which will contain all of the downloaded data. Otherwise it is downloaded into the current directory",
+        default=".",
+    )
+    parser.add_argument("tokenuser", help="The username the auth token belongs to")
+    parser.add_argument(
+        "token",
+        help="The username and Personal Access Token pair to authenticate with GitHub",
+    )
+    parser.add_argument(
+        "owner", help="The GitHub user or organization that owns the repository"
+    )
+    parser.add_argument("repo", help="The repository name to download")
+
+    args = parser.parse_args()
+
+    # Set the log level
+    LOG.setLevel(log_levels[args.loglevel.lower()])
+
+    api = GitHubAPI(args.tokenuser, args.token)
+
+    download_repo(args.dl_dir, api, args.owner, args.repo)
 
 
 if __name__ == "__main__":
