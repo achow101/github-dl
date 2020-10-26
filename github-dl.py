@@ -238,7 +238,7 @@ def download_repo(args_dl_dir, api, owner, repo):
     if repo_info["has_wiki"]:
         api.get_repo(
             owner,
-            f"{repo}.wiki.git",
+            f"{repo}.wiki",
             target_dir,
             "wiki",
         )
