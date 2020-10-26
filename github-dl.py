@@ -87,9 +87,7 @@ class GitHubAPI:
             gh_repo = Repo(repo_path)
         except (InvalidGitRepositoryError, NoSuchPathError) as e:
             LOG.info(f"Cloning {dir_name}")
-            repo_url = (
-                f"https://{self.user}:{self.token}@github.com/{owner}/{repo}.git",
-            )
+            repo_url = f"https://{self.user}:{self.token}@github.com/{owner}/{repo}.git"
             gh_repo = Repo.clone_from(repo_url, repo_path, multi_options=["--mirror"])
         LOG.info(f"Updating {dir_name}")
         gh_remote = Remote(gh_repo, "origin")
