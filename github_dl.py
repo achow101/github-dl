@@ -71,7 +71,7 @@ class GitHubAPI:
                     time_to_sleep = int((end - now).total_seconds()) + 1
                     LOG.info(f"Rate limited, sleeping for {time_to_sleep} seconds")
                     time.sleep(time_to_sleep)
-                    return api_get(url, target_file, headers)
+                    return self.api_get(url, target_file, headers)
 
         if target_file is not None:
             with open(target_file, "wb") as f:
